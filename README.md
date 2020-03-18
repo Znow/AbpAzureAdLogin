@@ -35,3 +35,4 @@
 5. You should see a page matching this below, with "Azure Active Directory"-button
 ![image](https://user-images.githubusercontent.com/265719/76947251-a27bd980-6905-11ea-8db2-8c8fed568406.png)
 6. Click on above mentioned button, and signin with your Azure AD credentials.
+7. User is created, but not logged in due to incorrect scheme
