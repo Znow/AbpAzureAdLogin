@@ -36,6 +36,13 @@ using Volo.Abp.UI.Navigation.Urls;
 using Volo.Abp.UI;
 using Volo.Abp.UI.Navigation;
 using Volo.Abp.VirtualFileSystem;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authentication.AzureAD.UI;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace AbpAzureAdLogin.Web
 {
@@ -81,6 +88,8 @@ namespace AbpAzureAdLogin.Web
             ConfigureNavigationServices();
             ConfigureAutoApiControllers();
             ConfigureSwaggerServices(context.Services);
+
+            context.Services.AddScoped<CustomSignInManager<Volo.Abp.Identity.IdentityUser>, CustomSignInManager<Volo.Abp.Identity.IdentityUser>>();
         }
 
         private void ConfigureUrls(IConfiguration configuration)
@@ -93,13 +102,44 @@ namespace AbpAzureAdLogin.Web
 
         private void ConfigureAuthentication(ServiceConfigurationContext context, IConfiguration configuration)
         {
-            context.Services.AddAuthentication()
+            //context.Services.AddAuthentication()
+            //    .AddIdentityServerAuthentication(options =>
+            //    {
+            //        options.Authority = configuration["AuthServer:Authority"];
+            //        options.RequireHttpsMetadata = false;
+            //        options.ApiName = "AbpAzureAdLogin";
+            //    });
+            context.Services.Configure<CookiePolicyOptions>(options =>
+            {
+                // This lambda determines whether user consent for non-essential cookies is needed for a given request.
+                options.CheckConsentNeeded = context => false;
+                options.MinimumSameSitePolicy = SameSiteMode.None;
+            });
+
+            context.Services.AddAuthentication(AzureADDefaults.AuthenticationScheme)
                 .AddIdentityServerAuthentication(options =>
                 {
                     options.Authority = configuration["AuthServer:Authority"];
                     options.RequireHttpsMetadata = false;
                     options.ApiName = "AbpAzureAdLogin";
-                });
+                })
+                .AddAzureAD(options => configuration.Bind("AzureAd", options));
+
+            context.Services.Configure<OpenIdConnectOptions>(AzureADDefaults.OpenIdScheme, options =>
+            {
+                options.Authority = options.Authority + "/v2.0/";         // Microsoft identity platform
+
+                options.TokenValidationParameters.ValidateIssuer = true; // accept several tenants (here simplified)
+            });
+
+            context.Services.AddMvc(options =>
+            {
+                var policy = new AuthorizationPolicyBuilder()
+                                .RequireAuthenticatedUser()
+                                .Build();
+                options.Filters.Add(new AuthorizeFilter(policy));
+            })
+            .SetCompatibilityVersion(CompatibilityVersion.Version_3_0);
         }
 
         private void ConfigureAutoMapper()
@@ -122,6 +162,7 @@ namespace AbpAzureAdLogin.Web
                     options.FileSets.ReplaceEmbeddedByPhysical<AbpAzureAdLoginApplicationContractsModule>(Path.Combine(hostingEnvironment.ContentRootPath, $"..{Path.DirectorySeparatorChar}AbpAzureAdLogin.Application.Contracts"));
                     options.FileSets.ReplaceEmbeddedByPhysical<AbpAzureAdLoginApplicationModule>(Path.Combine(hostingEnvironment.ContentRootPath, $"..{Path.DirectorySeparatorChar}AbpAzureAdLogin.Application"));
                     options.FileSets.ReplaceEmbeddedByPhysical<AbpAzureAdLoginWebModule>(hostingEnvironment.ContentRootPath);
+                    options.FileSets.AddEmbedded<AbpAzureAdLoginWebModule>("AbpAzureAdLogin.Web");
                 });
             }
         }
