@@ -36,6 +36,16 @@ using Volo.Abp.UI.Navigation.Urls;
 using Volo.Abp.UI;
 using Volo.Abp.UI.Navigation;
 using Volo.Abp.VirtualFileSystem;
+using IdentityServer4;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Microsoft.IdentityModel.Tokens;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Identity;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Authentication.AzureAD.UI;
+using Microsoft.AspNetCore.Authentication;
 
 namespace AbpAzureAdLogin.Web
 {
@@ -70,6 +80,10 @@ namespace AbpAzureAdLogin.Web
 
         public override void ConfigureServices(ServiceConfigurationContext context)
         {
+            context.Services
+                .GetObject<IdentityBuilder>()
+                .AddSignInManager<CustomSigninManager>();
+
             var hostingEnvironment = context.Services.GetHostingEnvironment();
             var configuration = context.Services.GetConfiguration();
 
@@ -93,6 +107,10 @@ namespace AbpAzureAdLogin.Web
 
         private void ConfigureAuthentication(ServiceConfigurationContext context, IConfiguration configuration)
         {
+            JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+
+            JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Add("http://schemas.microsoft.com/identity/claims/objectidentifier", ClaimTypes.NameIdentifier);
+            JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Add("oid", ClaimTypes.NameIdentifier);
             context.Services.AddAuthentication()
                 .AddIdentityServerAuthentication(options =>
                 {
@@ -100,6 +118,30 @@ namespace AbpAzureAdLogin.Web
                     options.RequireHttpsMetadata = false;
                     options.ApiName = "AbpAzureAdLogin";
                 });
+
+            //context.Services.AddAuthentication(AzureADDefaults.AuthenticationScheme)
+            context.Services.AddAuthentication(IdentityConstants.ExternalScheme)
+                .AddAzureAD(options => configuration.Bind("AzureAd", options));
+
+            context.Services.Configure<OpenIdConnectOptions>(AzureADDefaults.OpenIdScheme, options =>
+            {
+                //options.Authority = options.Authority + "/v2.0/";         // Microsoft identity platform
+                options.Authority = "https://login.microsoftonline.com/" + configuration["AzureAd:TenantId"];
+
+                options.TokenValidationParameters.ValidateIssuer = false; // accept several tenants (here simplified)
+
+                options.GetClaimsFromUserInfoEndpoint = true;
+                options.SignInScheme = IdentityConstants.ExternalScheme;
+                options.SignOutScheme = IdentityServerConstants.SignoutScheme;
+                options.ForwardSignIn = IdentityServerConstants.ExternalCookieAuthenticationScheme;
+
+                options.Events.OnTokenValidated = (async context =>
+                {
+                    var debugPoint = context.Principal.Identity;
+
+                    await Task.CompletedTask;
+                });
+            });
         }
 
         private void ConfigureAutoMapper()
@@ -209,5 +251,6 @@ namespace AbpAzureAdLogin.Web
             app.UseAbpSerilogEnrichers();
             app.UseMvcWithDefaultRouteAndArea();
         }
+
     }
 }
