@@ -28,11 +28,11 @@ using Volo.Abp.UI.Navigation.Urls;
 using Volo.Abp.UI.Navigation;
 using Volo.Abp.VirtualFileSystem;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
-using Microsoft.AspNetCore.Identity;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.OAuth.Claims;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace AbpAzureAdLogin.Web
 {
@@ -67,9 +67,10 @@ namespace AbpAzureAdLogin.Web
 
         public override void ConfigureServices(ServiceConfigurationContext context)
         {
-            context.Services
-                .GetObject<IdentityBuilder>()
-                .AddSignInManager<CustomSigninManager>();
+            // Uncomment for debugging
+            //context.Services
+            //    .GetObject<IdentityBuilder>()
+            //    .AddSignInManager<CustomSigninManager>();
 
             var hostingEnvironment = context.Services.GetHostingEnvironment();
             var configuration = context.Services.GetConfiguration();
@@ -95,9 +96,8 @@ namespace AbpAzureAdLogin.Web
         private void ConfigureAuthentication(ServiceConfigurationContext context, IConfiguration configuration)
         {
             JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
-
-            JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Add("http://schemas.microsoft.com/identity/claims/objectidentifier", ClaimTypes.NameIdentifier);
-            JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Add("oid", ClaimTypes.NameIdentifier);
+            // Mapping for GetExternalLoginInfoAsync
+            JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Add("sub", ClaimTypes.NameIdentifier);
             context.Services.AddAuthentication()
                 .AddIdentityServerAuthentication(options =>
                 {
@@ -105,7 +105,7 @@ namespace AbpAzureAdLogin.Web
                     options.RequireHttpsMetadata = false;
                     options.ApiName = "AbpAzureAdLogin";
                 })
-                .AddOpenIdConnect("oidc", "AzureAD", options =>
+                .AddOpenIdConnect("AzureOpenId", "AzureAD", options =>
                  {
                      options.Authority = "https://login.microsoftonline.com/" + configuration["AzureAd:TenantId"];
                      options.ClientId = configuration["AzureAd:ClientId"];
@@ -115,14 +115,12 @@ namespace AbpAzureAdLogin.Web
                      options.RequireHttpsMetadata = false;
                      options.SaveTokens = true;
                      options.GetClaimsFromUserInfoEndpoint = true;
-                     options.Scope.Add("role");
-                     options.Scope.Add("email");
-                     options.Scope.Add("phone");
+
                      options.ClaimActions.MapAbpClaimTypes();
                      options.Events.OnTokenValidated = (async context =>
                      {
-                         var debugPoint = context.Principal.Identity;
-
+                         var debugIdentityPrincipal = context.Principal.Identity;
+                         var claimsFromOidcProvider = context.Principal.Claims.ToList();
                          await Task.CompletedTask;
                      });
                  });
