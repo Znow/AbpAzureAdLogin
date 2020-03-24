@@ -132,13 +132,12 @@ namespace AbpAzureAdLogin.Web
 
                 options.GetClaimsFromUserInfoEndpoint = true;
                 options.SignInScheme = IdentityConstants.ExternalScheme;
-                //options.SignOutScheme = IdentityConstants.ApplicationScheme;
                 options.SignOutScheme = IdentityServerConstants.SignoutScheme;
                 options.ForwardSignIn = IdentityServerConstants.ExternalCookieAuthenticationScheme;
 
                 options.Events.OnTokenValidated = (async context =>
                 {
-                    var dodo = context.Principal.Identity;
+                    var debugPoint = context.Principal.Identity;
 
                     await Task.CompletedTask;
                 });
@@ -253,47 +252,5 @@ namespace AbpAzureAdLogin.Web
             app.UseMvcWithDefaultRouteAndArea();
         }
 
-        private void ConfigureAuthenticationWithOldADConfig(ServiceConfigurationContext context, IConfiguration configuration)
-        {
-            context.Services.AddAuthentication()
-                .AddOpenIdConnect("aad", "Azure AD", options =>
-                {
-                    //options.SignInScheme = IdentityServerConstants.ExternalCookieAuthenticationScheme;
-                    //options.SignOutScheme = IdentityServerConstants.SignoutScheme;
-                    options.SignInScheme = IdentityConstants.ExternalScheme;
-                    //options.SignOutScheme = IdentityConstants.SignoutScheme;
-
-                    options.Authority = "https://login.microsoftonline.com/" + configuration["AzureAd:TenantId"];
-                    options.ClientId = configuration["AzureAd:ClientId"];
-                    options.ClientSecret = configuration["AzureAd:ClientId"];
-                    options.ResponseType = OpenIdConnectResponseType.IdToken;
-                    options.CallbackPath = "/signin-oidc";
-                    //options.SignedOutCallbackPath = "/signout-callback-aad";
-                    //options.RemoteSignOutPath = "/signout-aad";
-                    options.SignedOutRedirectUri = "/signout-oidc";
-
-                    options.TokenValidationParameters = new TokenValidationParameters
-                    {
-                        NameClaimType = "name",
-                        RoleClaimType = "role"
-                    };
-                    options.Events.OnTokenValidated = (async context =>
-                    {
-                        var dodo = context.Principal.Identity;
-                        await Task.CompletedTask;
-                    });
-
-                    options.GetClaimsFromUserInfoEndpoint = true;
-                    JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
-
-                    JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Add("sub", ClaimTypes.NameIdentifier);
-                })
-                .AddIdentityServerAuthentication(options =>
-                {
-                    options.Authority = configuration["AuthServer:Authority"];
-                    options.RequireHttpsMetadata = false;
-                    options.ApiName = "AbpAzureAdLogin";
-                });
-        }
     }
 }
