@@ -1,7 +1,5 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using Localization.Resources.AbpUi;
-using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -12,40 +10,29 @@ using AbpAzureAdLogin.Localization;
 using AbpAzureAdLogin.MultiTenancy;
 using AbpAzureAdLogin.Web.Menus;
 using Microsoft.OpenApi.Models;
-using Swashbuckle.AspNetCore.Swagger;
 using Volo.Abp;
 using Volo.Abp.Account.Web;
 using Volo.Abp.AspNetCore.Authentication.JwtBearer;
 using Volo.Abp.AspNetCore.Mvc;
 using Volo.Abp.AspNetCore.Mvc.Localization;
-using Volo.Abp.AspNetCore.Mvc.UI;
-using Volo.Abp.AspNetCore.Mvc.UI.Bootstrap;
-using Volo.Abp.AspNetCore.Mvc.UI.MultiTenancy;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.Basic;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.Shared;
 using Volo.Abp.AspNetCore.Serilog;
 using Volo.Abp.Autofac;
 using Volo.Abp.AutoMapper;
-using Volo.Abp.FeatureManagement;
 using Volo.Abp.Identity.Web;
 using Volo.Abp.Localization;
 using Volo.Abp.Modularity;
-using Volo.Abp.PermissionManagement.Web;
 using Volo.Abp.TenantManagement.Web;
 using Volo.Abp.UI.Navigation.Urls;
-using Volo.Abp.UI;
 using Volo.Abp.UI.Navigation;
 using Volo.Abp.VirtualFileSystem;
-using IdentityServer4;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
-using Microsoft.IdentityModel.Tokens;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
-using Microsoft.AspNetCore.Authentication.AzureAD.UI;
-using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.OAuth.Claims;
+using System.Threading.Tasks;
 
 namespace AbpAzureAdLogin.Web
 {
@@ -117,31 +104,51 @@ namespace AbpAzureAdLogin.Web
                     options.Authority = configuration["AuthServer:Authority"];
                     options.RequireHttpsMetadata = false;
                     options.ApiName = "AbpAzureAdLogin";
-                });
+                })
+                .AddOpenIdConnect("oidc", "AzureAD", options =>
+                 {
+                     options.Authority = "https://login.microsoftonline.com/" + configuration["AzureAd:TenantId"];
+                     options.ClientId = configuration["AzureAd:ClientId"];
+                     options.ClientSecret = configuration["AzureAd:ClientSecret"];
+                     options.ResponseType = OpenIdConnectResponseType.CodeIdToken;
+                     options.CallbackPath = "/signin-oidc";
+                     options.RequireHttpsMetadata = false;
+                     options.SaveTokens = true;
+                     options.GetClaimsFromUserInfoEndpoint = true;
+                     options.Scope.Add("role");
+                     options.Scope.Add("email");
+                     options.Scope.Add("phone");
+                     options.ClaimActions.MapAbpClaimTypes();
+                     options.Events.OnTokenValidated = (async context =>
+                     {
+                         var debugPoint = context.Principal.Identity;
 
-            //context.Services.AddAuthentication(AzureADDefaults.AuthenticationScheme)
-            context.Services.AddAuthentication(IdentityConstants.ExternalScheme)
-                .AddAzureAD(options => configuration.Bind("AzureAd", options));
+                         await Task.CompletedTask;
+                     });
+                 });
+            //context.Services.AddAuthentication(IdentityConstants.ExternalScheme)
+            //    .AddAzureAD(options => configuration.Bind("AzureAd", options));
 
-            context.Services.Configure<OpenIdConnectOptions>(AzureADDefaults.OpenIdScheme, options =>
-            {
-                //options.Authority = options.Authority + "/v2.0/";         // Microsoft identity platform
-                options.Authority = "https://login.microsoftonline.com/" + configuration["AzureAd:TenantId"];
+            //context.Services.Configure<OpenIdConnectOptions>(AzureADDefaults.OpenIdScheme, options =>
+            //{
+            //    //options.Authority = options.Authority + "/v2.0/";         // Microsoft identity platform
+            //    options.Authority = "https://login.microsoftonline.com/" + configuration["AzureAd:TenantId"];
 
-                options.TokenValidationParameters.ValidateIssuer = false; // accept several tenants (here simplified)
+            //    options.TokenValidationParameters.ValidateIssuer = false; // accept several tenants (here simplified)
 
-                options.GetClaimsFromUserInfoEndpoint = true;
-                options.SignInScheme = IdentityConstants.ExternalScheme;
-                options.SignOutScheme = IdentityServerConstants.SignoutScheme;
-                options.ForwardSignIn = IdentityServerConstants.ExternalCookieAuthenticationScheme;
+            //    options.GetClaimsFromUserInfoEndpoint = true;
+            //    options.SignInScheme = IdentityConstants.ExternalScheme;
+            //    options.SignOutScheme = IdentityServerConstants.SignoutScheme;
+            //    options.ForwardSignIn = IdentityServerConstants.ExternalCookieAuthenticationScheme;
+            //    options.ResponseType = OpenIdConnectResponseType.CodeIdToken;
 
-                options.Events.OnTokenValidated = (async context =>
-                {
-                    var debugPoint = context.Principal.Identity;
+            //    options.Events.OnTokenValidated = (async context =>
+            //    {
+            //        var debugPoint = context.Principal.Identity;
 
-                    await Task.CompletedTask;
-                });
-            });
+            //        await Task.CompletedTask;
+            //    });
+            //});
         }
 
         private void ConfigureAutoMapper()
