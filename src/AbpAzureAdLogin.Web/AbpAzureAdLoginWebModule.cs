@@ -30,7 +30,6 @@ using Volo.Abp.VirtualFileSystem;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using Microsoft.AspNetCore.Authentication.OAuth.Claims;
 using System.Threading.Tasks;
 using System.Linq;
 
@@ -109,14 +108,12 @@ namespace AbpAzureAdLogin.Web
                  {
                      options.Authority = "https://login.microsoftonline.com/" + configuration["AzureAd:TenantId"];
                      options.ClientId = configuration["AzureAd:ClientId"];
-                     options.ClientSecret = configuration["AzureAd:ClientSecret"];
-                     options.ResponseType = OpenIdConnectResponseType.CodeIdToken;
+                     options.ResponseType = OpenIdConnectResponseType.IdToken;
                      options.CallbackPath = "/signin-oidc";
                      options.RequireHttpsMetadata = false;
                      options.SaveTokens = true;
                      options.GetClaimsFromUserInfoEndpoint = true;
 
-                     options.ClaimActions.MapAbpClaimTypes();
                      options.Events.OnTokenValidated = (async context =>
                      {
                          var debugIdentityPrincipal = context.Principal.Identity;
