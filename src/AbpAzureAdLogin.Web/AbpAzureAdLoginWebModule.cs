@@ -32,6 +32,11 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using System.Linq;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Authentication.AzureAD.UI;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authentication.OAuth.Claims;
 
 namespace AbpAzureAdLogin.Web
 {
@@ -104,46 +109,48 @@ namespace AbpAzureAdLogin.Web
                     options.RequireHttpsMetadata = false;
                     options.ApiName = "AbpAzureAdLogin";
                 })
-                .AddOpenIdConnect("AzureOpenId", "AzureAD", options =>
-                 {
-                     options.Authority = "https://login.microsoftonline.com/" + configuration["AzureAd:TenantId"];
-                     options.ClientId = configuration["AzureAd:ClientId"];
-                     options.ResponseType = OpenIdConnectResponseType.IdToken;
-                     options.CallbackPath = "/signin-oidc";
-                     options.RequireHttpsMetadata = false;
-                     options.SaveTokens = true;
-                     options.GetClaimsFromUserInfoEndpoint = true;
+            //    .AddOpenIdConnect("AzureOpenId", "AzureAD", options =>
+            //     {
+            //         options.Authority = "https://login.microsoftonline.com/" + configuration["AzureAd:TenantId"];
+            //         options.ClientId = configuration["AzureAd:ClientId"];
+            //         options.ResponseType = OpenIdConnectResponseType.IdToken;
+            //         options.CallbackPath = "/signin-oidc";
+            //         options.RequireHttpsMetadata = false;
+            //         options.SaveTokens = true;
+            //         options.GetClaimsFromUserInfoEndpoint = true;
 
-                     options.Events.OnTokenValidated = (async context =>
-                     {
-                         var debugIdentityPrincipal = context.Principal.Identity;
-                         var claimsFromOidcProvider = context.Principal.Claims.ToList();
-                         await Task.CompletedTask;
-                     });
-                 });
-            //context.Services.AddAuthentication(IdentityConstants.ExternalScheme)
-            //    .AddAzureAD(options => configuration.Bind("AzureAd", options));
+            //         options.Events.OnTokenValidated = (async context =>
+            //         {
+            //             var debugIdentityPrincipal = context.Principal.Identity;
+            //             var claimsFromOidcProvider = context.Principal.Claims.ToList();
+            //             await Task.CompletedTask;
+            //         });
+            //     });
+            .AddAzureAD(options => configuration.Bind("AzureAd", options));
+            // Same with commented above
+            context.Services.Configure<OpenIdConnectOptions>(AzureADDefaults.OpenIdScheme, options =>
+            {
+                //options.Authority = options.Authority + "/v2.0/";         // Has problem with username
+                options.Authority = "https://login.microsoftonline.com/" + configuration["AzureAd:TenantId"];
+                options.ClientId = configuration["AzureAd:ClientId"];
+                options.CallbackPath = configuration["AzureAd:CallbackPath"];
 
-            //context.Services.Configure<OpenIdConnectOptions>(AzureADDefaults.OpenIdScheme, options =>
-            //{
-            //    //options.Authority = options.Authority + "/v2.0/";         // Microsoft identity platform
-            //    options.Authority = "https://login.microsoftonline.com/" + configuration["AzureAd:TenantId"];
+                options.ResponseType = OpenIdConnectResponseType.IdToken;
+                options.RequireHttpsMetadata = false;
 
-            //    options.TokenValidationParameters.ValidateIssuer = false; // accept several tenants (here simplified)
+                options.TokenValidationParameters.ValidateIssuer = false; // accept several tenants (here simplified)                
+                options.GetClaimsFromUserInfoEndpoint = true;
+                options.SaveTokens = true;
 
-            //    options.GetClaimsFromUserInfoEndpoint = true;
-            //    options.SignInScheme = IdentityConstants.ExternalScheme;
-            //    options.SignOutScheme = IdentityServerConstants.SignoutScheme;
-            //    options.ForwardSignIn = IdentityServerConstants.ExternalCookieAuthenticationScheme;
-            //    options.ResponseType = OpenIdConnectResponseType.CodeIdToken;
-
-            //    options.Events.OnTokenValidated = (async context =>
-            //    {
-            //        var debugPoint = context.Principal.Identity;
-
-            //        await Task.CompletedTask;
-            //    });
-            //});
+                options.SignInScheme = IdentityConstants.ExternalScheme;
+                
+                options.Events.OnTokenValidated = (async context =>
+                {
+                    var debugIdentityPrincipal = context.Principal.Identity;
+                    var claimsFromOidcProvider = context.Principal.Claims.ToList();
+                    await Task.CompletedTask;
+                });
+            });
         }
 
         private void ConfigureAutoMapper()
