@@ -1,7 +1,5 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using Localization.Resources.AbpUi;
-using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -12,37 +10,33 @@ using AbpAzureAdLogin.Localization;
 using AbpAzureAdLogin.MultiTenancy;
 using AbpAzureAdLogin.Web.Menus;
 using Microsoft.OpenApi.Models;
-using Swashbuckle.AspNetCore.Swagger;
 using Volo.Abp;
 using Volo.Abp.Account.Web;
 using Volo.Abp.AspNetCore.Authentication.JwtBearer;
 using Volo.Abp.AspNetCore.Mvc;
 using Volo.Abp.AspNetCore.Mvc.Localization;
-using Volo.Abp.AspNetCore.Mvc.UI;
-using Volo.Abp.AspNetCore.Mvc.UI.Bootstrap;
-using Volo.Abp.AspNetCore.Mvc.UI.MultiTenancy;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.Basic;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.Shared;
 using Volo.Abp.AspNetCore.Serilog;
 using Volo.Abp.Autofac;
 using Volo.Abp.AutoMapper;
-using Volo.Abp.FeatureManagement;
 using Volo.Abp.Identity.Web;
 using Volo.Abp.Localization;
 using Volo.Abp.Modularity;
-using Volo.Abp.PermissionManagement.Web;
 using Volo.Abp.TenantManagement.Web;
 using Volo.Abp.UI.Navigation.Urls;
-using Volo.Abp.UI;
 using Volo.Abp.UI.Navigation;
 using Volo.Abp.VirtualFileSystem;
-using Microsoft.AspNetCore.Http;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Threading.Tasks;
+using System.Linq;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authentication.AzureAD.UI;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc.Authorization;
-using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authentication.OAuth.Claims;
 
 namespace AbpAzureAdLogin.Web
 {
@@ -77,6 +71,11 @@ namespace AbpAzureAdLogin.Web
 
         public override void ConfigureServices(ServiceConfigurationContext context)
         {
+            // Uncomment for debugging
+            //context.Services
+            //    .GetObject<IdentityBuilder>()
+            //    .AddSignInManager<CustomSigninManager>();
+
             var hostingEnvironment = context.Services.GetHostingEnvironment();
             var configuration = context.Services.GetConfiguration();
 
@@ -88,8 +87,6 @@ namespace AbpAzureAdLogin.Web
             ConfigureNavigationServices();
             ConfigureAutoApiControllers();
             ConfigureSwaggerServices(context.Services);
-
-            context.Services.AddScoped<CustomSignInManager<Volo.Abp.Identity.IdentityUser>, CustomSignInManager<Volo.Abp.Identity.IdentityUser>>();
         }
 
         private void ConfigureUrls(IConfiguration configuration)
@@ -102,44 +99,58 @@ namespace AbpAzureAdLogin.Web
 
         private void ConfigureAuthentication(ServiceConfigurationContext context, IConfiguration configuration)
         {
-            //context.Services.AddAuthentication()
-            //    .AddIdentityServerAuthentication(options =>
-            //    {
-            //        options.Authority = configuration["AuthServer:Authority"];
-            //        options.RequireHttpsMetadata = false;
-            //        options.ApiName = "AbpAzureAdLogin";
-            //    });
-            context.Services.Configure<CookiePolicyOptions>(options =>
-            {
-                // This lambda determines whether user consent for non-essential cookies is needed for a given request.
-                options.CheckConsentNeeded = context => false;
-                options.MinimumSameSitePolicy = SameSiteMode.None;
-            });
-
-            context.Services.AddAuthentication(AzureADDefaults.AuthenticationScheme)
+            JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+            // Mapping for GetExternalLoginInfoAsync
+            JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Add("sub", ClaimTypes.NameIdentifier);
+            context.Services.AddAuthentication()
                 .AddIdentityServerAuthentication(options =>
                 {
                     options.Authority = configuration["AuthServer:Authority"];
                     options.RequireHttpsMetadata = false;
                     options.ApiName = "AbpAzureAdLogin";
                 })
-                .AddAzureAD(options => configuration.Bind("AzureAd", options));
+            //    .AddOpenIdConnect("AzureOpenId", "AzureAD", options =>
+            //     {
+            //         options.Authority = "https://login.microsoftonline.com/" + configuration["AzureAd:TenantId"];
+            //         options.ClientId = configuration["AzureAd:ClientId"];
+            //         options.ResponseType = OpenIdConnectResponseType.IdToken;
+            //         options.CallbackPath = "/signin-oidc";
+            //         options.RequireHttpsMetadata = false;
+            //         options.SaveTokens = true;
+            //         options.GetClaimsFromUserInfoEndpoint = true;
 
+            //         options.Events.OnTokenValidated = (async context =>
+            //         {
+            //             var debugIdentityPrincipal = context.Principal.Identity;
+            //             var claimsFromOidcProvider = context.Principal.Claims.ToList();
+            //             await Task.CompletedTask;
+            //         });
+            //     });
+            .AddAzureAD(options => configuration.Bind("AzureAd", options));
+            // Same with commented above
             context.Services.Configure<OpenIdConnectOptions>(AzureADDefaults.OpenIdScheme, options =>
             {
-                options.Authority = options.Authority + "/v2.0/";         // Microsoft identity platform
+                //options.Authority = options.Authority + "/v2.0/";         // Has problem with username
+                options.Authority = "https://login.microsoftonline.com/" + configuration["AzureAd:TenantId"];
+                options.ClientId = configuration["AzureAd:ClientId"];
+                options.CallbackPath = configuration["AzureAd:CallbackPath"];
 
-                options.TokenValidationParameters.ValidateIssuer = true; // accept several tenants (here simplified)
+                options.ResponseType = OpenIdConnectResponseType.IdToken;
+                options.RequireHttpsMetadata = false;
+
+                options.TokenValidationParameters.ValidateIssuer = false; // accept several tenants (here simplified)                
+                options.GetClaimsFromUserInfoEndpoint = true;
+                options.SaveTokens = true;
+
+                options.SignInScheme = IdentityConstants.ExternalScheme;
+                
+                options.Events.OnTokenValidated = (async context =>
+                {
+                    var debugIdentityPrincipal = context.Principal.Identity;
+                    var claimsFromOidcProvider = context.Principal.Claims.ToList();
+                    await Task.CompletedTask;
+                });
             });
-
-            context.Services.AddMvc(options =>
-            {
-                var policy = new AuthorizationPolicyBuilder()
-                                .RequireAuthenticatedUser()
-                                .Build();
-                options.Filters.Add(new AuthorizeFilter(policy));
-            })
-            .SetCompatibilityVersion(CompatibilityVersion.Version_3_0);
         }
 
         private void ConfigureAutoMapper()
@@ -162,7 +173,6 @@ namespace AbpAzureAdLogin.Web
                     options.FileSets.ReplaceEmbeddedByPhysical<AbpAzureAdLoginApplicationContractsModule>(Path.Combine(hostingEnvironment.ContentRootPath, $"..{Path.DirectorySeparatorChar}AbpAzureAdLogin.Application.Contracts"));
                     options.FileSets.ReplaceEmbeddedByPhysical<AbpAzureAdLoginApplicationModule>(Path.Combine(hostingEnvironment.ContentRootPath, $"..{Path.DirectorySeparatorChar}AbpAzureAdLogin.Application"));
                     options.FileSets.ReplaceEmbeddedByPhysical<AbpAzureAdLoginWebModule>(hostingEnvironment.ContentRootPath);
-                    options.FileSets.AddEmbedded<AbpAzureAdLoginWebModule>("AbpAzureAdLogin.Web");
                 });
             }
         }
@@ -250,5 +260,6 @@ namespace AbpAzureAdLogin.Web
             app.UseAbpSerilogEnrichers();
             app.UseMvcWithDefaultRouteAndArea();
         }
+
     }
 }
