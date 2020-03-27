@@ -14,7 +14,7 @@ namespace AbpAzureAdLogin.Web.Pages.Account
 {
     public abstract class AccountPageModel : AbpPageModel
     {
-        public CustomSignInManager<IdentityUser> SignInManager { get; set; }
+        public CustomSigninManager SignInManager { get; set; }
         public IdentityUserManager UserManager { get; set; }
 
         protected AccountPageModel()
