@@ -208,8 +208,8 @@ namespace AbpAzureAdLogin.Web.Pages.Account
 
         protected virtual async Task<IdentityUser> CreateExternalUserAsync(ExternalLoginInfo info)
         {
-            //var emailAddress = info.Principal.FindFirstValue(AbpClaimTypes.Email);
-            var emailAddress = info.Principal.Claims.FirstOrDefault(x => x.Type == "preferred_username")?.Value;
+            var emailAddress = info.Principal.FindFirstValue(AbpClaimTypes.Email);
+            //var emailAddress = info.Principal.Claims.FirstOrDefault(x => x.Type == "preferred_username")?.Value;
 
             var user = new IdentityUser(GuidGenerator.Create(), emailAddress, emailAddress, CurrentTenant.Id);
 
