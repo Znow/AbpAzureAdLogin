@@ -11,6 +11,8 @@ namespace AbpAzureAdLogin.EntityFrameworkCore
     {
         public AbpAzureAdLoginMigrationsDbContext CreateDbContext(string[] args)
         {
+            AbpAzureAdLoginEfCoreEntityExtensionMappings.Configure();
+
             var configuration = BuildConfiguration();
 
             var builder = new DbContextOptionsBuilder<AbpAzureAdLoginMigrationsDbContext>()

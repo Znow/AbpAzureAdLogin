@@ -1,4 +1,5 @@
 ﻿using AbpAzureAdLogin.MultiTenancy;
+using AbpAzureAdLogin.ObjectExtending;
 using Volo.Abp.AuditLogging;
 using Volo.Abp.BackgroundJobs;
 using Volo.Abp.FeatureManagement;
@@ -27,6 +28,11 @@ namespace AbpAzureAdLogin
         )]
     public class AbpAzureAdLoginDomainModule : AbpModule
     {
+        public override void PreConfigureServices(ServiceConfigurationContext context)
+        {
+            AbpAzureAdLoginDomainObjectExtensions.Configure();
+        }
+
         public override void ConfigureServices(ServiceConfigurationContext context)
         {
             Configure<AbpMultiTenancyOptions>(options =>

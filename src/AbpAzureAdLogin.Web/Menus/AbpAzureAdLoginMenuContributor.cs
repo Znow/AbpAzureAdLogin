@@ -26,9 +26,9 @@ namespace AbpAzureAdLogin.Web.Menus
                 administration.TryRemoveMenuItem(TenantManagementMenuNames.GroupName);
             }
 
-            var l = context.ServiceProvider.GetRequiredService<IStringLocalizer<AbpAzureAdLoginResource>>();
+            var l = context.GetLocalizer<AbpAzureAdLoginResource>();
 
-            context.Menu.Items.Insert(0, new ApplicationMenuItem("AbpAzureAdLogin.Home", l["Menu:Home"], "/"));
+            context.Menu.Items.Insert(0, new ApplicationMenuItem("AbpAzureAdLogin.Home", l["Menu:Home"], "~/"));
         }
     }
 }

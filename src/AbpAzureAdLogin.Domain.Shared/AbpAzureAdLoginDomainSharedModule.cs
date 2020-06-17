@@ -39,6 +39,8 @@ namespace AbpAzureAdLogin
                     .Add<AbpAzureAdLoginResource>("en")
                     .AddBaseTypes(typeof(AbpValidationResource))
                     .AddVirtualJson("/Localization/AbpAzureAdLogin");
+                
+                options.DefaultResourceType = typeof(AbpAzureAdLoginResource);
             });
         }
     }

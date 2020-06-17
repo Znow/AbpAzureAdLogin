@@ -257,3 +257,4 @@ src/AbpAzureAdLogin.Web.Host/Logs/*
 src/AbpAzureAdLogin.IdentityServer/Logs/*
 src/AbpAzureAdLogin.HttpApi.Host/Logs/*
 src/AbpAzureAdLogin.HttpApi.HostWithIds/Logs/*
+src/AbpAzureAdLogin.DbMigrator/Logs/*

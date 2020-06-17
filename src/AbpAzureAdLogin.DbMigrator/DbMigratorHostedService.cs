@@ -10,6 +10,13 @@ namespace AbpAzureAdLogin.DbMigrator
 {
     public class DbMigratorHostedService : IHostedService
     {
+        private readonly IHostApplicationLifetime _hostApplicationLifetime;
+
+        public DbMigratorHostedService(IHostApplicationLifetime hostApplicationLifetime)
+        {
+            _hostApplicationLifetime = hostApplicationLifetime;
+        }
+
         public async Task StartAsync(CancellationToken cancellationToken)
         {
             using (var application = AbpApplicationFactory.Create<AbpAzureAdLoginDbMigratorModule>(options =>
@@ -26,6 +33,8 @@ namespace AbpAzureAdLogin.DbMigrator
                     .MigrateAsync();
 
                 application.Shutdown();
+
+                _hostApplicationLifetime.StopApplication();
             }
         }
 

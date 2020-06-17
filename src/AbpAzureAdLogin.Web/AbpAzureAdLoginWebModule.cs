@@ -1,5 +1,7 @@
-﻿using System.IO;
+using System;
+using System.IO;
 using Localization.Resources.AbpUi;
+using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -10,21 +12,28 @@ using AbpAzureAdLogin.Localization;
 using AbpAzureAdLogin.MultiTenancy;
 using AbpAzureAdLogin.Web.Menus;
 using Microsoft.OpenApi.Models;
+using Swashbuckle.AspNetCore.Swagger;
 using Volo.Abp;
 using Volo.Abp.Account.Web;
 using Volo.Abp.AspNetCore.Authentication.JwtBearer;
 using Volo.Abp.AspNetCore.Mvc;
 using Volo.Abp.AspNetCore.Mvc.Localization;
+using Volo.Abp.AspNetCore.Mvc.UI;
+using Volo.Abp.AspNetCore.Mvc.UI.Bootstrap;
+using Volo.Abp.AspNetCore.Mvc.UI.MultiTenancy;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.Basic;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.Shared;
 using Volo.Abp.AspNetCore.Serilog;
 using Volo.Abp.Autofac;
 using Volo.Abp.AutoMapper;
+using Volo.Abp.FeatureManagement;
 using Volo.Abp.Identity.Web;
 using Volo.Abp.Localization;
 using Volo.Abp.Modularity;
+using Volo.Abp.PermissionManagement.Web;
 using Volo.Abp.TenantManagement.Web;
 using Volo.Abp.UI.Navigation.Urls;
+using Volo.Abp.UI;
 using Volo.Abp.UI.Navigation;
 using Volo.Abp.VirtualFileSystem;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
@@ -71,11 +80,6 @@ namespace AbpAzureAdLogin.Web
 
         public override void ConfigureServices(ServiceConfigurationContext context)
         {
-            // Uncomment for debugging
-            //context.Services
-            //    .GetObject<IdentityBuilder>()
-            //    .AddSignInManager<CustomSigninManager>();
-
             var hostingEnvironment = context.Services.GetHostingEnvironment();
             var configuration = context.Services.GetConfiguration();
 
@@ -99,6 +103,14 @@ namespace AbpAzureAdLogin.Web
 
         private void ConfigureAuthentication(ServiceConfigurationContext context, IConfiguration configuration)
         {
+            //context.Services.AddAuthentication()
+            //    .AddIdentityServerAuthentication(options =>
+            //    {
+            //        options.Authority = configuration["AuthServer:Authority"];
+            //        options.RequireHttpsMetadata = false;
+            //        options.ApiName = "AbpAzureAdLogin";
+            //    });
+
             JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
             // Mapping for GetExternalLoginInfoAsync
             JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Add("sub", ClaimTypes.NameIdentifier);
@@ -109,23 +121,6 @@ namespace AbpAzureAdLogin.Web
                     options.RequireHttpsMetadata = false;
                     options.ApiName = "AbpAzureAdLogin";
                 })
-            //    .AddOpenIdConnect("AzureOpenId", "AzureAD", options =>
-            //     {
-            //         options.Authority = "https://login.microsoftonline.com/" + configuration["AzureAd:TenantId"];
-            //         options.ClientId = configuration["AzureAd:ClientId"];
-            //         options.ResponseType = OpenIdConnectResponseType.IdToken;
-            //         options.CallbackPath = "/signin-oidc";
-            //         options.RequireHttpsMetadata = false;
-            //         options.SaveTokens = true;
-            //         options.GetClaimsFromUserInfoEndpoint = true;
-
-            //         options.Events.OnTokenValidated = (async context =>
-            //         {
-            //             var debugIdentityPrincipal = context.Principal.Identity;
-            //             var claimsFromOidcProvider = context.Principal.Claims.ToList();
-            //             await Task.CompletedTask;
-            //         });
-            //     });
             .AddAzureAD(options => configuration.Bind("AzureAd", options));
             // Same with commented above
             context.Services.Configure<OpenIdConnectOptions>(AzureADDefaults.OpenIdScheme, options =>
@@ -143,7 +138,7 @@ namespace AbpAzureAdLogin.Web
                 options.SaveTokens = true;
 
                 options.SignInScheme = IdentityConstants.ExternalScheme;
-                
+
                 options.Events.OnTokenValidated = (async context =>
                 {
                     var debugIdentityPrincipal = context.Principal.Identity;
@@ -187,9 +182,11 @@ namespace AbpAzureAdLogin.Web
                         typeof(AbpUiResource)
                     );
 
+                options.Languages.Add(new LanguageInfo("ar", "ar", "العربية"));
                 options.Languages.Add(new LanguageInfo("cs", "cs", "Čeština"));
                 options.Languages.Add(new LanguageInfo("en", "en", "English"));
                 options.Languages.Add(new LanguageInfo("pt-BR", "pt-BR", "Português"));
+                options.Languages.Add(new LanguageInfo("ru", "ru", "Русский"));
                 options.Languages.Add(new LanguageInfo("tr", "tr", "Türkçe"));
                 options.Languages.Add(new LanguageInfo("zh-Hans", "zh-Hans", "简体中文"));
                 options.Languages.Add(new LanguageInfo("zh-Hant", "zh-Hant", "繁體中文"));
@@ -229,8 +226,6 @@ namespace AbpAzureAdLogin.Web
             var app = context.GetApplicationBuilder();
             var env = context.GetEnvironment();
 
-            app.UseCorrelationId();
-
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
@@ -239,6 +234,8 @@ namespace AbpAzureAdLogin.Web
             {
                 app.UseErrorPage();
             }
+
+            app.UseCorrelationId();
             app.UseVirtualFiles();
             app.UseRouting();
             app.UseAuthentication();
@@ -248,9 +245,10 @@ namespace AbpAzureAdLogin.Web
             {
                 app.UseMultiTenancy();
             }
+
+            app.UseAbpRequestLocalization();
             app.UseIdentityServer();
             app.UseAuthorization();
-            app.UseAbpRequestLocalization();
             app.UseSwagger();
             app.UseSwaggerUI(options =>
             {
@@ -258,8 +256,7 @@ namespace AbpAzureAdLogin.Web
             });
             app.UseAuditing();
             app.UseAbpSerilogEnrichers();
-            app.UseMvcWithDefaultRouteAndArea();
+            app.UseConfiguredEndpoints();
         }
-
     }
 }

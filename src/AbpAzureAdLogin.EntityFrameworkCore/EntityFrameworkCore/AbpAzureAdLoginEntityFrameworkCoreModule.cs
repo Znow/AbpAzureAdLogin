@@ -27,6 +27,11 @@ namespace AbpAzureAdLogin.EntityFrameworkCore
         )]
     public class AbpAzureAdLoginEntityFrameworkCoreModule : AbpModule
     {
+        public override void PreConfigureServices(ServiceConfigurationContext context)
+        {
+            AbpAzureAdLoginEfCoreEntityExtensionMappings.Configure();
+        }
+
         public override void ConfigureServices(ServiceConfigurationContext context)
         {
             context.Services.AddAbpDbContext<AbpAzureAdLoginDbContext>(options =>

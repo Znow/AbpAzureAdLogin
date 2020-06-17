@@ -5,13 +5,15 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Volo.Abp;
 using Volo.Abp.EntityFrameworkCore;
+using Volo.Abp.EntityFrameworkCore.Sqlite;
 using Volo.Abp.Modularity;
 
 namespace AbpAzureAdLogin.EntityFrameworkCore
 {
     [DependsOn(
         typeof(AbpAzureAdLoginEntityFrameworkCoreDbMigrationsModule),
-        typeof(AbpAzureAdLoginTestBaseModule)
+        typeof(AbpAzureAdLoginTestBaseModule),
+        typeof(AbpEntityFrameworkCoreSqliteModule)
         )]
     public class AbpAzureAdLoginEntityFrameworkCoreTestModule : AbpModule
     {
@@ -28,7 +30,10 @@ namespace AbpAzureAdLogin.EntityFrameworkCore
 
             services.Configure<AbpDbContextOptions>(options =>
             {
-                options.Configure(context => { context.DbContextOptions.UseSqlite(_sqliteConnection); });
+                options.Configure(context =>
+                {
+                    context.DbContextOptions.UseSqlite(_sqliteConnection);
+                });
             });
         }
 
